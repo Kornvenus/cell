@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR Plant Cell Explorer</title>
+    
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    
+    <style>
+        body { margin: 0; background-color: #1a1a24; font-family: sans-serif; }
+        
+        model-viewer {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #ar-button {
+            background-color: #4CAF50;
+            color: #fff;
+            border-radius: 8px;
+            border: none;
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            cursor: pointer;
+        }
+
+        .hotspot-btn {
+            background: rgba(255, 255, 255, 0.9); 
+            border-radius: 50%; 
+            width: 24px; 
+            height: 24px; 
+            border: 2px solid #4CAF50;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .HotspotAnnotation {
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: none;
+            position: absolute;
+            transform: translate(-50%, -100%);
+            margin-top: -20px;
+            width: max-content;
+            max-width: 200px;
+            pointer-events: none;
+        }
+        
+        .HotspotAnnotation.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+    <model-viewer 
+        src="cell.glb" 
+        alt="โมเดลสามมิติของเซลล์พืช"
+        camera-controls
+        auto-rotate
+        ar
+        ar-modes="webxr scene-viewer quick-look">
+        
+        <button class="hotspot-btn" slot="hotspot-1" data-position="0.2 0.5 0.1" data-normal="0 1 0">
+            <div class="HotspotAnnotation">
+                🍃 <b>Chloroplast (คลอโรพลาสต์)</b><br>ทำหน้าที่สร้างอาหารให้เซลล์ด้วยกระบวนการสังเคราะห์ด้วยแสง
+            </div>
+        </button>
+
+        <button class="hotspot-btn" slot="hotspot-2" data-position="-0.1 0.8 -0.2" data-normal="0 1 0">
+            <div class="HotspotAnnotation">
+                🧠 <b>Nucleus (นิวเคลียส)</b><br>ศูนย์กลางควบคุมการทำงานของเซลล์ และเก็บข้อมูลทางพันธุกรรม (DNA)
+            </div>
+        </button>
+
+        <button class="hotspot-btn" slot="hotspot-3" data-position="0.5 0.2 0.0" data-normal="1 0 0">
+            <div class="HotspotAnnotation">
+                🧱 <b>Cell Wall (ผนังเซลล์)</b><br>ให้ความแข็งแรงทนทาน และคงรูปร่างของเซลล์พืชเอาไว้
+            </div>
+        </button>
+
+        <button class="hotspot-btn" slot="hotspot-4" data-position="-0.3 0.3 0.2" data-normal="0 0 1">
+            <div class="HotspotAnnotation">
+                💧 <b>Vacuole (แวคิวโอล)</b><br>ถุงขนาดใหญ่สำหรับเก็บสะสมน้ำ สารอาหาร และของเสีย
+            </div>
+        </button>
+
+        <button slot="ar-button" id="ar-button">
+            🌱 ดูเซลล์พืชทะลุจอ (AR)
+        </button>
+        
+    </model-viewer>
+
+    <script>
+        const hotspots = document.querySelectorAll('.hotspot-btn');
+
+        hotspots.forEach(hotspot => {
+            hotspot.addEventListener('click', function(event) {
+                event.stopPropagation(); 
+                const annotation = this.querySelector('.HotspotAnnotation');
+                const isCurrentlyOpen = annotation.classList.contains('show');
+
+                document.querySelectorAll('.HotspotAnnotation').forEach(box => {
+                    box.classList.remove('show');
+                });
+
+                if (!isCurrentlyOpen) {
+                    annotation.classList.add('show');
+                }
+            });
+        });
+
+        const modelViewer = document.querySelector('model-viewer');
+        modelViewer.addEventListener('click', () => {
+            document.querySelectorAll('.HotspotAnnotation').forEach(box => {
+                box.classList.remove('show');
+            });
+        });
+    </script>
+
+</body>
+</html>
