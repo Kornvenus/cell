@@ -5,173 +5,226 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WebAR Plant Cell Explorer</title>
     
+    <!-- เรียกใช้งานไลบรารี model-viewer -->
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
     
     <style>
-        body { margin: 0; background-color: #1a1a24; font-family: sans-serif; }
+        body { margin: 0; background-color: #2b2b2b; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
         
         model-viewer {
             width: 100vw;
             height: 100vh;
+            --poster-color: transparent;
         }
 
-        /* ตกแต่งปุ่มกด (จุด Hotspot) */
-        .Hotspot {
-            background: rgba(255, 255, 255, 0.9); 
-            border-radius: 50%; 
-            width: 24px; 
-            height: 24px; 
-            border: 2px solid #4CAF50;
-            cursor: pointer;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
-            transition: transform 0.2s;
-        }
-
-        .Hotspot:hover {
-            transform: scale(1.2); /* ขยายปุ่มนิดหน่อยตอนเอาเมาส์ชี้ */
-        }
-
-        /* ตกแต่งกล่องข้อความและซ่อนไว้ก่อน */
-        .HotspotAnnotation {
-            background: rgba(0, 0, 0, 0.85);
-            color: white;
-            padding: 12px 16px;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            display: none; /* ซ่อนข้อความไว้เป็นค่าเริ่มต้น */
-            position: absolute;
-            transform: translate(-50%, -100%);
-            margin-top: -20px;
-            width: max-content;
-            max-width: 280px; /* จำกัดความกว้างไม่ให้ข้อความยาวทะลุจอ */
-            pointer-events: none;
-            text-align: left;
-            z-index: 10;
-        }
-        
-        /* คลาสสำหรับโชว์ข้อความเมื่อถูกคลิก */
-        .HotspotAnnotation.show {
-            display: block;
-        }
-
+        /* ปุ่ม AR ด้านล่าง */
         #ar-button {
-            background-color: #4CAF50;
-            color: #fff;
-            border-radius: 8px;
+            background-color: #ffffff;
+            color: #333;
+            border-radius: 20px;
             border: none;
             position: absolute;
             bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 12px 24px;
+            font-size: 16px;
             font-weight: bold;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             cursor: pointer;
+            z-index: 10;
         }
 
-        #ar-prompt {
-            position: absolute;
-            left: 50%;
-            bottom: 100px;
-            transform: translateX(-50%);
-            display: none;
+        /* การตกแต่งปุ่มตัวเลข (Hotspot) */
+        .hotspot-btn {
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            position: relative;
         }
-        
-        model-viewer[ar-status="session-started"] > #ar-prompt {
-            display: block;
+
+        .hotspot-number {
+            background-color: rgba(40, 40, 50, 0.9);
+            color: white;
+            border: 1px solid #aaa;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            transition: all 0.2s ease;
+        }
+
+        /* กล่องคำอธิบายสีเข้ม (Annotation Box) */
+        .annotation-box {
+            background-color: rgba(20, 20, 25, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            width: 250px; /* ขยายความกว้างเล็กน้อยเพื่อให้พอดีกับคำอธิบายยาว */
+            text-align: left;
+            position: absolute;
+            top: 50%;
+            left: 40px; 
+            transform: translateY(-50%);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* เมื่อคลิกหรือเอาเมาส์ชี้ที่ตัวเลข ให้โชว์กล่องข้อความ */
+        .hotspot-btn:focus .annotation-box,
+        .hotspot-btn:hover .annotation-box {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* การจัดรูปแบบข้อความ 3 บรรทัด */
+        .anno-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffffff;
+            border-bottom: 1px solid #555;
+            padding-bottom: 5px;
+        }
+        .anno-function {
+            font-size: 13px;
+            font-weight: bold;
+            color: #4da6ff; 
+            margin-bottom: 5px;
+        }
+        .anno-desc {
+            font-size: 12px;
+            line-height: 1.5;
+            color: #dcdcdc;
         }
     </style>
 </head>
 <body>
 
-    <model-viewer src="cell.glb" ar ar-modes="scene-viewer webxr quick-look" camera-controls tone-mapping="neutral" poster="poster.webp" shadow-intensity="1">
+    <model-viewer 
+        src="cell.glb" 
+        alt="3D Plant Cell Model"
+        camera-controls
+        auto-rotate
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        shadow-intensity="1">
         
-        <button class="Hotspot" slot="hotspot-2" data-position="0.17395846362416764m 0.3749010832411236m -0.10754885667251353m" data-normal="0m -3.823159015123374e-7m 0.9999999999999271m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>เอนโดพลาสมิกเรติคูลัม (ER)</b><br>ออร์แกเนลล์ที่เป็นระบบท่อและถุงแบนยาวต่อเนื่องกันซึ่งห่อหุ้มด้วยเยื่อหุ้มเซลล์ พบในไซโตพลาสซึมของเซลล์ยูคาริโอต</div>
+        <!-- 1. แวคิวโอลขนาดใหญ่ -->
+        <button slot="hotspot-vacuole" class="hotspot-btn" data-position="-0.2 0.1 0.4" data-normal="0 0 1">
+            <div class="hotspot-number">1</div>
+            <div class="annotation-box">
+                <div class="anno-name">แวคิวโอลขนาดใหญ่ (Central Vacuole)</div>
+                <div class="anno-function">หน้าที่: กักเก็บน้ำ สารอาหาร และของเสีย</div>
+                <div class="anno-desc">ถุงน้ำขนาดใหญ่สีฟ้า (หมายเลข 1) ที่กินพื้นที่เกือบครึ่งหนึ่งของเซลล์พืช ทำหน้าที่รักษาแรงดันเต่งให้น้ำในเซลล์สมดุล หากพืชขาดน้ำส่วนนี้จะหดตัวลงทำให้ใบไม้เหี่ยวเฉา</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-3" data-position="0.20243555077825925m 0.24489445268615223m 0.080813405605099m" data-normal="0m -3.201999072060505e-7m 0.9999999999999489m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>กอลจิแอพพาราตัส (Golgi apparatus)</b><br>ออร์แกเนลล์ชนิดหนึ่งที่พบในเซลล์ยูคาริโอต มีหน้าที่หลักในการรับ ตัดแต่ง เติมแต่ง และบรรจุโปรตีนหรือไขมันที่สร้างจาก ER ก่อนส่งไปยังเป้าหมายต่างๆ</div>
+
+        <!-- 2. นิวเคลียส -->
+        <button slot="hotspot-nucleus" class="hotspot-btn" data-position="0.3 0.15 -0.1" data-normal="0 1 0">
+            <div class="hotspot-number">2</div>
+            <div class="annotation-box">
+                <div class="anno-name">นิวเคลียส (Nucleus)</div>
+                <div class="anno-function">หน้าที่: ศูนย์กลางควบคุมการทำงานและเก็บสารพันธุกรรม</div>
+                <div class="anno-desc">โครงสร้างทรงกลมขนาดใหญ่ (หมายเลข 2, 18, 19) เป็นที่กักเก็บ DNA ทำหน้าที่เหมือนห้องผู้บริหารที่สั่งการทุกกิจกรรมของเซลล์ ตั้งแต่การสังเคราะห์โปรตีนไปจนถึงกระบวนการแบ่งเซลล์</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-8" data-position="0.15177472388258392m 0.31230229302363277m 0.13170889894920784m" data-normal="0m -6.403991992447099e-7m 0.9999999999997949m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>แวคิวโอล (Vacuole)</b><br>ออร์แกเนลล์ขนาดใหญ่ที่มีลักษณะคล้ายถุงน้ำ พบได้ในเซลล์พืชและสาหร่ายสีเขียว ซึ่งกินพื้นที่ในเซลล์ได้มากถึง 80-90%</div>
+
+        <!-- 3. คลอโรพลาสต์ -->
+        <button slot="hotspot-chloroplast" class="hotspot-btn" data-position="-0.4 0.2 -0.2" data-normal="-1 0 0">
+            <div class="hotspot-number">3</div>
+            <div class="annotation-box">
+                <div class="anno-name">คลอโรพลาสต์ (Chloroplast)</div>
+                <div class="anno-function">หน้าที่: สร้างอาหารผ่านกระบวนการสังเคราะห์ด้วยแสง</div>
+                <div class="anno-desc">ออร์แกเนลล์สีเขียว (หมายเลข 3, 4, 6, 7) ที่มีรงควัตถุคลอโรฟิลล์อยู่ด้านใน ทำหน้าที่ดูดกลืนพลังงานแสงอาทิตย์มาเปลี่ยนคาร์บอนไดออกไซด์และน้ำให้เป็นน้ำตาลเพื่อเป็นอาหาร</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-9" data-position="-0.14522997516282135m 0.37510691361841453m -0.11212192167636384m" data-normal="0m -6.403996093561069e-7m 0.9999999999997949m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>ผนังเซลล์ (Cell Wall)</b><br>โครงสร้างชั้นนอกสุดที่ล้อมรอบเยื่อหุ้มเซลล์ของ พืช สาหร่าย เชื้อรา และแบคทีเรีย แต่ไม่พบในเซลล์สัตว์</div>
+
+        <!-- 4. กอลจิบอดี -->
+        <button slot="hotspot-golgi" class="hotspot-btn" data-position="0.1 0.4 -0.3" data-normal="0 1 0">
+            <div class="hotspot-number">5</div>
+            <div class="annotation-box">
+                <div class="anno-name">กอลจิบอดี (Golgi Apparatus)</div>
+                <div class="anno-function">หน้าที่: เติมแต่ง บรรจุ และคัดแยกโปรตีนเพื่อส่งออก</div>
+                <div class="anno-desc">กลุ่มถุงแบนสีน้ำเงินซ้อนกัน (หมายเลข 5, 8) ทำหน้าที่รับโปรตีนมาปรับแต่งรูปร่าง ห่อหุ้มใส่เวสิเคิล และจัดส่งไปยังจุดหมายปลายทาง คล้ายกับแผนกแพ็กและกระจายสินค้าของเซลล์</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-12" data-position="-0.059707189778548705m 0.34492712156366556m -0.009789559601281292m" data-normal="0m -9.605994140339143e-7m 0.9999999999995387m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>เวสิเคิล (Vesicle)</b><br>ถุงเยื่อหุ้มขนาดเล็กทรงกลมภายในหรือภายนอกเซลล์ ที่บรรจุของเหลวหรือสารต่าง ๆ และมีเยื่อไขมันสองชั้นห่อหุ้มอยู่ ทำหน้าที่เคลื่อนย้ายและลำเลียงสารต่าง ๆ ภายในเซลล์</div>
+
+        <!-- 5. ไมโทคอนเดรีย -->
+        <button slot="hotspot-mitochondria" class="hotspot-btn" data-position="0.5 0.3 0.2" data-normal="1 0 0">
+            <div class="hotspot-number">14</div>
+            <div class="annotation-box">
+                <div class="anno-name">ไมโทคอนเดรีย (Mitochondria)</div>
+                <div class="anno-function">หน้าที่: สร้างพลังงานให้แก่เซลล์</div>
+                <div class="anno-desc">โครงสร้างรูปไข่สีส้ม (หมายเลข 9, 10, 11, 14) ทำหน้าที่เผาผลาญสารอาหารร่วมกับแก๊สออกซิเจนให้กลายเป็นพลังงาน (ATP) เปรียบเสมือนโรงไฟฟ้าที่จ่ายไฟให้เซลล์ทำกิจกรรมต่างๆ ได้</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-14" data-position="-0.15101867697179017m 0.3001289782849491m -0.09143787888462095m" data-normal="0m -6.404000194680293e-7m 0.999999999999795m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>นิวเคลียส (Nucleus)</b><br>ออร์แกเนลล์ที่มีเยื่อหุ้มสองชั้น ซึ่งพบในเซลล์ยูแคริโอต (Eukaryotic cell)</div>
+
+        <!-- 6. ผนังเซลล์ -->
+        <button slot="hotspot-cellwall" class="hotspot-btn" data-position="-0.6 0 0" data-normal="-1 0 0">
+            <div class="hotspot-number">12</div>
+            <div class="annotation-box">
+                <div class="anno-name">ผนังเซลล์ (Cell Wall)</div>
+                <div class="anno-function">หน้าที่: ค้ำจุนโครงสร้างและรักษารูปทรง</div>
+                <div class="anno-desc">โครงสร้างชั้นนอกสุดสีเขียว (หมายเลข 12) สร้างจากเซลลูโลส ทำหน้าที่เหมือนกำแพงป้องกันไม่ให้เซลล์แตกเมื่อมีน้ำออสโมซิสเข้ามา และทำให้เซลล์พืชมีรูปทรงเหลี่ยมคงที่</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-15" data-position="-0.24069527624454407m 0.2570235430424179m 0.03959706484125913m" data-normal="0m 0m 1m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>ไมโทคอนเดรีย (Mitochondria)</b><br>ทำหน้าที่เป็น "โรงงานผลิตพลังงาน" ของเซลล์ในร่างกาย โดยเปลี่ยนสารอาหารและออกซิเจนให้กลายเป็นพลังงานเคมีที่เรียกว่า ATP</div>
+
+        <!-- 7. ไซโทพลาซึม -->
+        <button slot="hotspot-cytoplasm" class="hotspot-btn" data-position="0 0.5 0" data-normal="0 1 0">
+            <div class="hotspot-number">13</div>
+            <div class="annotation-box">
+                <div class="anno-name">ไซโทพลาซึม (Cytoplasm)</div>
+                <div class="anno-function">หน้าที่: พื้นที่เกิดปฏิกิริยาเคมีและที่อยู่ของออร์แกเนลล์</div>
+                <div class="anno-desc">ของเหลวคล้ายเจล (หมายเลข 13) ที่กระจายอยู่เต็มเซลล์ ประกอบด้วยน้ำและสารละลาย เป็นเสมือนพื้นที่ว่างให้โครงสร้างอื่นๆ ลอยอยู่และดำเนินกระบวนการเคมีที่สำคัญต่อชีวิต</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-16" data-position="-0.06526858946612299m 0.28393719502813497m 0.03397321752349594m" data-normal="0m 8.005000243349444e-7m -0.9999999999996796m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>ไรโบโซม (Ribosome)</b><br>ออร์แกเนลล์ขนาดเล็กที่ไม่มีเยื่อหุ้มเซลล์ ทำหน้าที่เป็นแหล่งสังเคราะห์โปรตีนให้กับเซลล์สิ่งมีชีวิตทุกชนิด</div>
+
+        <!-- 8. ร่างแหเอนโดพลาซึม -->
+        <button slot="hotspot-er" class="hotspot-btn" data-position="0.2 0 -0.2" data-normal="1 0 0">
+            <div class="hotspot-number">15</div>
+            <div class="annotation-box">
+                <div class="anno-name">ร่างแหเอนโดพลาซึม (Endoplasmic Reticulum)</div>
+                <div class="anno-function">หน้าที่: สร้างและลำเลียงโปรตีนและลิพิด</div>
+                <div class="anno-desc">โครงสร้างท่อพับซ้อนกันอยู่รอบนิวเคลียส (หมายเลข 15, 16, 17) มีทั้งแบบขรุขระที่มีไรโบโซมเกาะเพื่อสร้างโปรตีน และแบบเรียบที่ช่วยสร้างไขมันและขจัดสารพิษ</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-17" data-position="-0.17594090185142208m 0.22240000934539317m 0.16672097323820978m" data-normal="0m 0m -1m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>คลอโรพลาสต์ (Chloroplast)</b><br>ออร์แกเนลล์ ที่มีเยื่อหุ้มสองชั้น พบได้ในเซลล์พืชและสาหร่าย ทำหน้าที่หลักในการเกิดกระบวนการสังเคราะห์ด้วยแสง</div>
+
+        <!-- 9. เยื่อหุ้มเซลล์ (สมมติเป็นหมายเลข 20 เพื่อให้เข้ากับระบบ UI) -->
+        <button slot="hotspot-membrane" class="hotspot-btn" data-position="-0.55 0 0" data-normal="-1 0 0">
+            <div class="hotspot-number">20</div>
+            <div class="annotation-box">
+                <div class="anno-name">เยื่อหุ้มเซลล์ (Cell Membrane)</div>
+                <div class="anno-function">หน้าที่: ควบคุมการผ่านเข้าออกของสาร</div>
+                <div class="anno-desc">เยื่อบางๆ ที่อยู่ติดกับผนังเซลล์ด้านใน ทำหน้าที่เป็นเยื่อเลือกผ่าน คอยคัดกรองสารอาหารและของเสียเข้าออก เพื่อรักษาสมดุลสภาพแวดล้อมภายในเซลล์ไม่ให้เปลี่ยนแปลงฉับพลัน</div>
+            </div>
         </button>
-        
-        <button class="Hotspot" slot="hotspot-18" data-position="0.29612338916949854m 0.284233567411085m -0.07379534538896415m" data-normal="0m 0m -1m" data-visibility-attribute="visible">
-            <div class="HotspotAnnotation"><b>เยื่อหุ้มเซลล์ (Cell Membrane)</b><br>เยื่อบาง ๆ ที่ห่อหุ้มเซลล์ ทำหน้าที่เป็นกำแพงกั้นระหว่างภายในเซลล์และสิ่งแวดล้อมภายนอก</div>
+
+        <!-- 10. ไรโบโซม (สมมติเป็นหมายเลข 21) -->
+        <button slot="hotspot-ribosome" class="hotspot-btn" data-position="0.25 -0.1 -0.2" data-normal="0 -1 0">
+            <div class="hotspot-number">21</div>
+            <div class="annotation-box">
+                <div class="anno-name">ไรโบโซม (Ribosome)</div>
+                <div class="anno-function">หน้าที่: สังเคราะห์โปรตีน</div>
+                <div class="anno-desc">เม็ดขนาดเล็กจิ๋วที่ลอยอยู่ในไซโทพลาซึมและเกาะบนร่างแหเอนโดพลาซึม ทำหน้าที่อ่านรหัสพันธุกรรมแล้วนำกรดอะมิโนมาประกอบเข้าด้วยกันเพื่อสร้างโปรตีนสำหรับใช้งานในเซลล์</div>
+            </div>
         </button>
-        
-        <div class="progress-bar hide" slot="progress-bar">
-            <div class="update-bar"></div>
-        </div>
-        
+
+        <!-- ปุ่มสำหรับเข้าโหมด AR -->
         <button slot="ar-button" id="ar-button">
-            🌱 ดูในพื้นที่จริง (AR)
+            👁️ ส่องเซลล์ทะลุจอ (AR Mode)
         </button>
-        
-        <div id="ar-prompt">
-            <img src="https://modelviewer.dev/shared-assets/icons/hand.png">
-        </div>
         
     </model-viewer>
-
-    <script>
-        const hotspots = document.querySelectorAll('.Hotspot');
-
-        hotspots.forEach(hotspot => {
-            hotspot.addEventListener('click', function(event) {
-                event.stopPropagation(); 
-                const annotation = this.querySelector('.HotspotAnnotation');
-                const isCurrentlyOpen = annotation.classList.contains('show');
-
-                // ซ่อนข้อความทุกอันก่อน
-                document.querySelectorAll('.HotspotAnnotation').forEach(box => {
-                    box.classList.remove('show');
-                });
-
-                // ถ้าอันที่กดไม่ได้เปิดอยู่ ให้เปิดขึ้นมา
-                if (!isCurrentlyOpen) {
-                    annotation.classList.add('show');
-                }
-            });
-        });
-
-        // ถ้าคลิกพื้นหลัง ให้ซ่อนข้อความทั้งหมด
-        const modelViewer = document.querySelector('model-viewer');
-        modelViewer.addEventListener('click', () => {
-            document.querySelectorAll('.HotspotAnnotation').forEach(box => {
-                box.classList.remove('show');
-            });
-        });
-    </script>
 
 </body>
 </html>
