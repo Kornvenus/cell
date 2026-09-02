@@ -1,96 +1,223 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Animal Cell Model</title>
-  
-  <!-- ดึงไลบรารี <model-viewer> ของ Google -->
-  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR Plant Cell Explorer</title>
+    
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+    
+    <style>
+        body { margin: 0; background-color: #1a1a24; font-family: sans-serif; overflow: hidden; }
+        
+        model-viewer {
+            width: 100vw;
+            height: 100vh;
+        }
 
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: 'Sarabun', sans-serif;
-      background-color: #f0f2f5;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+        /* ตกแต่งปุ่มกด (จุด Hotspot) */
+        .Hotspot {
+            background: rgba(255, 255, 255, 0.9); 
+            border-radius: 50%; 
+            width: 24px; 
+            height: 24px; 
+            border: 2px solid #4CAF50;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+            position: relative;
+        }
 
-    h1 {
-      color: #333;
-      margin-bottom: 15px;
-    }
+        .Hotspot:hover {
+            transform: scale(1.2);
+        }
 
-    model-viewer {
-      width: 100%;
-      max-width: 800px;
-      height: 600px;
-      background-color: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
+        /* ตกแต่งกล่องข้อความ */
+        .HotspotAnnotation {
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: none; /* ซ่อนข้อความไว้เป็นค่าเริ่มต้น */
+            position: absolute;
+            bottom: 35px; /* ดันข้อความให้อยู่เหนือปุ่ม */
+            left: 50%;
+            transform: translateX(-50%);
+            width: max-content;
+            max-width: 280px; 
+            pointer-events: none; /* ป้องกันการคลิกโดนกล่องข้อความ */
+            text-align: left;
+            z-index: 999; /* ให้อยู่บนสุดเสมอ */
+        }
+        
+        /* คลาสสำหรับโชว์ข้อความเมื่อถูกคลิก */
+        .HotspotAnnotation.show {
+            display: block;
+        }
 
-    /* ตกแต่งปุ่มหมุดบอกตำแหน่ง */
-    .Hotspot {
-      background: #ff4757;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-      cursor: pointer;
-      height: 20px;
-      width: 20px;
-      padding: 0;
-      position: relative;
-      transition: transform 0.2s;
-    }
+        /* ปุ่มดู AR */
+        #ar-button {
+            background-color: #4CAF50;
+            color: #fff;
+            border-radius: 8px;
+            border: none;
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+            cursor: pointer;
+            z-index: 10;
+        }
 
-    .Hotspot:hover {
-      transform: scale(1.3);
-      background-color: #2ed573;
-    }
+        #ar-prompt {
+            position: absolute;
+            left: 50%;
+            bottom: 100px;
+            transform: translateX(-50%);
+            display: none;
+        }
+        
+        model-viewer[ar-status="session-started"] > #ar-prompt {
+            display: block;
+        }
 
-    /* ป้ายข้อความคำอธิบาย */
-    .HotspotAnnotation {
-      background: rgba(0, 0, 0, 0.85);
-      border-radius: 4px;
-      color: #fff;
-      font-size: 13px;
-      left: calc(100% + 10px);
-      padding: 6px 10px;
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      white-space: nowrap;
-      pointer-events: none;
-    }
-  </style>
+        /* ----- เพิ่ม CSS สำหรับแถบดาวน์โหลด (Progress Bar) ----- */
+        .progress-bar {
+            display: block;
+            width: 33%;
+            height: 10px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 25px;
+            background-color: rgba(0, 0, 0, 0.5);
+            box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            overflow: hidden;
+        }
+        .progress-bar.hide {
+            visibility: hidden;
+            transition: visibility 0.3s;
+        }
+        .update-bar {
+            background-color: #4CAF50;
+            width: 0%;
+            height: 100%;
+            transition: width 0.3s;
+        }
+    </style>
 </head>
 <body>
 
-  <h1>โมเดลเซลล์สัตว์ 3D</h1>
+    <!-- เอา poster="poster.webp" ออกชั่วคราว เพื่อไม่ให้เกิดปัญหารูปโหลดไม่ขึ้น -->
+    <model-viewer src="cell.glb" ar ar-modes="scene-viewer webxr quick-look" camera-controls tone-mapping="neutral" shadow-intensity="1">
+        
+        <button class="Hotspot" slot="hotspot-2" data-position="0.17395846362416764m 0.3749010832411236m -0.10754885667251353m" data-normal="0m -3.823159015123374e-7m 0.9999999999999271m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>เอนโดพลาสมิกเรติคูลัม (ER)</b><br>ออร์แกเนลล์ที่เป็นระบบท่อและถุงแบนยาวต่อเนื่องกันซึ่งห่อหุ้มด้วยเยื่อหุ้มเซลล์ พบในไซโตพลาสซึมของเซลล์ยูคาริโอต</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-3" data-position="0.20243555077825925m 0.24489445268615223m 0.080813405605099m" data-normal="0m -3.201999072060505e-7m 0.9999999999999489m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>กอลจิแอพพาราตัส (Golgi apparatus)</b><br>ออร์แกเนลล์ชนิดหนึ่งที่พบในเซลล์ยูคาริโอต มีหน้าที่หลักในการรับ ตัดแต่ง เติมแต่ง และบรรจุโปรตีนหรือไขมันที่สร้างจาก ER ก่อนส่งไปยังเป้าหมายต่างๆ</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-8" data-position="0.15177472388258392m 0.31230229302363277m 0.13170889894920784m" data-normal="0m -6.403991992447099e-7m 0.9999999999997949m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>แวคิวโอล (Vacuole)</b><br>ออร์แกเนลล์ขนาดใหญ่ที่มีลักษณะคล้ายถุงน้ำ พบได้ในเซลล์พืชและสาหร่ายสีเขียว ซึ่งกินพื้นที่ในเซลล์ได้มากถึง 80-90%</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-9" data-position="-0.14522997516282135m 0.37510691361841453m -0.11212192167636384m" data-normal="0m -6.403996093561069e-7m 0.9999999999997949m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>ผนังเซลล์ (Cell Wall)</b><br>โครงสร้างชั้นนอกสุดที่ล้อมรอบเยื่อหุ้มเซลล์ของ พืช สาหร่าย เชื้อรา และแบคทีเรีย แต่ไม่พบในเซลล์สัตว์</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-12" data-position="-0.059707189778548705m 0.34492712156366556m -0.009789559601281292m" data-normal="0m -9.605994140339143e-7m 0.9999999999995387m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>เวสิเคิล (Vesicle)</b><br>ถุงเยื่อหุ้มขนาดเล็กทรงกลมภายในหรือภายนอกเซลล์ ที่บรรจุของเหลวหรือสารต่าง ๆ และมีเยื่อไขมันสองชั้นห่อหุ้มอยู่ ทำหน้าที่เคลื่อนย้ายและลำเลียงสารต่าง ๆ ภายในเซลล์</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-14" data-position="-0.15101867697179017m 0.3001289782849491m -0.09143787888462095m" data-normal="0m -6.404000194680293e-7m 0.999999999999795m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>นิวเคลียส (Nucleus)</b><br>ออร์แกเนลล์ที่มีเยื่อหุ้มสองชั้น ซึ่งพบในเซลล์ยูแคริโอต (Eukaryotic cell)</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-15" data-position="-0.24069527624454407m 0.2570235430424179m 0.03959706484125913m" data-normal="0m 0m 1m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>ไมโทคอนเดรีย (Mitochondria)</b><br>ทำหน้าที่เป็น "โรงงานผลิตพลังงาน" ของเซลล์ในร่างกาย โดยเปลี่ยนสารอาหารและออกซิเจนให้กลายเป็นพลังงานเคมีที่เรียกว่า ATP</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-16" data-position="-0.06526858946612299m 0.28393719502813497m 0.03397321752349594m" data-normal="0m 8.005000243349444e-7m -0.9999999999996796m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>ไรโบโซม (Ribosome)</b><br>ออร์แกเนลล์ขนาดเล็กที่ไม่มีเยื่อหุ้มเซลล์ ทำหน้าที่เป็นแหล่งสังเคราะห์โปรตีนให้กับเซลล์สิ่งมีชีวิตทุกชนิด</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-17" data-position="-0.17594090185142208m 0.22240000934539317m 0.16672097323820978m" data-normal="0m 0m -1m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>คลอโรพลาสต์ (Chloroplast)</b><br>ออร์แกเนลล์ ที่มีเยื่อหุ้มสองชั้น พบได้ในเซลล์พืชและสาหร่าย ทำหน้าที่หลักในการเกิดกระบวนการสังเคราะห์ด้วยแสง</div>
+        </button>
+        
+        <button class="Hotspot" slot="hotspot-18" data-position="0.29612338916949854m 0.284233567411085m -0.07379534538896415m" data-normal="0m 0m -1m" data-visibility-attribute="visible">
+            <div class="HotspotAnnotation"><b>เยื่อหุ้มเซลล์ (Cell Membrane)</b><br>เยื่อบาง ๆ ที่ห่อหุ้มเซลล์ ทำหน้าที่เป็นกำแพงกั้นระหว่างภายในเซลล์และสิ่งแวดล้อมภายนอก</div>
+        </button>
+        
+        <!-- แถบดาวน์โหลด -->
+        <div class="progress-bar hide" slot="progress-bar">
+            <div class="update-bar"></div>
+        </div>
+        
+        <button slot="ar-button" id="ar-button">
+            🌱 ดูในพื้นที่จริง (AR)
+        </button>
+        
+        <div id="ar-prompt">
+            <img src="https://modelviewer.dev/shared-assets/icons/hand.png">
+        </div>
+        
+    </model-viewer>
 
-  <model-viewer 
-    src="cell.glb" 
-    alt="โมเดลเซลล์สัตว์ 3D"
-    camera-controls 
-    auto-rotate 
-    shadow-intensity="1"
-    camera-target="auto auto auto"
-    bounds="tight"
-    field-of-view="auto">
-    
-    <!-- จุดที่ 1: ตัวอย่างปักหมุด -->
-    <button class="Hotspot" slot="hotspot-1" data-position="0m 0m 0m" data-normal="0m 1m 0m">
-      <div class="HotspotAnnotation">นิวเคลียส (Nucleus)</div>
-    </button>
+    <script>
+        const modelViewer = document.querySelector('model-viewer');
+        const hotspots = document.querySelectorAll('.Hotspot');
 
-  </model-viewer>
+        // สคริปต์สำหรับเปิด-ปิดกล่องข้อความ
+        hotspots.forEach(hotspot => {
+            hotspot.addEventListener('click', function(event) {
+                event.stopPropagation(); 
+                const annotation = this.querySelector('.HotspotAnnotation');
+                const isCurrentlyOpen = annotation.classList.contains('show');
+
+                // ซ่อนข้อความทุกอันก่อน
+                document.querySelectorAll('.HotspotAnnotation').forEach(box => {
+                    box.classList.remove('show');
+                });
+
+                // ถ้าอันที่กดไม่ได้เปิดอยู่ ให้เปิดขึ้นมา
+                if (!isCurrentlyOpen) {
+                    annotation.classList.add('show');
+                }
+            });
+        });
+
+        // ถ้าคลิกพื้นหลัง ให้ซ่อนข้อความทั้งหมด
+        modelViewer.addEventListener('click', () => {
+            document.querySelectorAll('.HotspotAnnotation').forEach(box => {
+                box.classList.remove('show');
+            });
+        });
+
+        // ----- สคริปต์ควบคุมแถบดาวน์โหลด -----
+        modelViewer.addEventListener('progress', (event) => {
+            const progressBar = event.target.querySelector('.progress-bar');
+            const updatingBar = event.target.querySelector('.update-bar');
+            updatingBar.style.width = `${event.detail.totalProgress * 100}%`;
+            
+            if (event.detail.totalProgress === 1) {
+                progressBar.classList.add('hide'); // ซ่อนเมื่อโหลดเต็ม 100%
+            } else {
+                progressBar.classList.remove('hide');
+            }
+        });
+    </script>
 
 </body>
 </html>
