@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>3D Animal Cell Model</title>
   
+  <!-- ดึงไลบรารี <model-viewer> ของ Google -->
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 
   <style>
@@ -35,7 +36,7 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
     }
 
-    /* ตกแต่งหมุดบอกตำแหน่ง */
+    /* ตกแต่งปุ่มหมุดบอกตำแหน่ง */
     .Hotspot {
       background: #ff4757;
       border-radius: 50%;
@@ -54,7 +55,7 @@
       background-color: #2ed573;
     }
 
-    /* กล่องป้ายข้อความ */
+    /* ป้ายข้อความคำอธิบาย */
     .HotspotAnnotation {
       background: rgba(0, 0, 0, 0.85);
       border-radius: 4px;
@@ -79,8 +80,12 @@
     alt="โมเดลเซลล์สัตว์ 3D"
     camera-controls 
     auto-rotate 
-    shadow-intensity="1">
+    shadow-intensity="1"
+    camera-target="auto auto auto"
+    bounds="tight"
+    field-of-view="auto">
     
+    <!-- จุดที่ 1: ตัวอย่างปักหมุด -->
     <button class="Hotspot" slot="hotspot-1" data-position="0m 0m 0m" data-normal="0m 1m 0m">
       <div class="HotspotAnnotation">นิวเคลียส (Nucleus)</div>
     </button>
